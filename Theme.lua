@@ -672,6 +672,49 @@ local function ApplyToHub()
     end
 end
 
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- WoW 3.3.5 COMPATIBILITY: C_Timer replacement
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- C_Timer doesn't exist in WoW 3.3.5, so we create a simple replacement
+-- that uses OnUpdate to simulate delayed execution
+
+if not C_Timer then
+    C_Timer = {}
+
+    local timerFrame = CreateFrame("Frame")
+    local timers = {}
+    local timerID = 0
+
+    timerFrame:SetScript("OnUpdate", function(self, elapsed)
+        local now = GetTime()
+        for id, timer in pairs(timers) do
+            if timer.cancelled then
+                timers[id] = nil
+            elseif now >= timer.executeAt then
+                timer.callback()
+                timers[id] = nil
+            end
+        end
+    end)
+
+    function C_Timer.After(delay, callback)
+        if type(callback) ~= "function" then return end
+        timerID = timerID + 1
+        timers[timerID] = {
+            executeAt = GetTime() + delay,
+            callback = callback,
+            cancelled = false
+        }
+        return timerID
+    end
+
+    function C_Timer.Cancel(id)
+        if timers[id] then
+            timers[id].cancelled = true
+        end
+    end
+end
+
 -- Hook hub tab switching
 local waiter = CreateFrame("Frame")
 local elapsed = 0
